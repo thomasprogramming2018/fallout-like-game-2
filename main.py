@@ -2308,11 +2308,11 @@ while GRunning:
                         }
                     }
                     #item drops
-                    shotgun = item(player.rect.x,player.rect.y, 'shotgun', 'weapon', 1, 2, True)
+                    shotgun = item(-200,-200, 'shotgun', 'weapon', 1, 2, False)
                     
-                    
-                    shotgunAmmo = item(player.rect.x - 70,player.rect.y, 'shotgun shells', 'ammo', 1, 30, True)
-                    
+                    using_item.append(shotgun)
+                    shotgunAmmo = item(-200,-200, 'shotgun shells', 'ammo', 1, 30, False)
+                    inventory.append(shotgunAmmo)
                     #data2 = {}
                     #data2[player_data["player_id"]] = player_data
                     #data = json.dumps(data)
@@ -2388,19 +2388,24 @@ while GRunning:
                         player.ap = player.ap_max
                     #print(prev_player_d_r)
                     #print(prev_loc)
+                    #when player loads in server update previous loc to the current one
+                    if first_loaded:
+                        prev_loc = loc
+                        first_loaded = False
+                    #if player location changes update the dictionary
                     if prev_loc != loc and "player_data" in prev_player_d_r and name_id in prev_player_d_r["player_data"][prev_loc]:
                         prev_player_d_r["player_data"][prev_loc].pop(name_id, None)
                         prev_player_d_r["player_data"][loc][name_id] = player_data
                         prev_loc = loc
-                    if first_loaded:
-                        prev_loc = loc
-                        first_loaded = False
+                    
+                    #what happeneds when you get shot and not in online_combat
                     if online_combat == False and "player_data" in prev_player_d_r and fight_loc in prev_player_d_r["player_data"]:
                         for i, playeron in prev_player_d_r["player_data"][loc].items():
                             if playeron["shooted_player"] == name_id:
                                 enemies_online.append(playeron["player_id"])
                                 enemies_online.append(name_id)
                                 online_combat = True
+                    #what happeneds when you shoot someone and not in online_combat
                     if len(online_players) >= 2 and "player_data" in prev_player_d_r:
                         if online_combat == False and player.ap >= 50:
                             for player_s in online_players:
@@ -2412,6 +2417,7 @@ while GRunning:
                                     player_data["shooted_player"] = player_s.id
                                     fight_loc = loc
                                     online_combat = True
+                    #if player in combat
                     if online_combat and "player_data" in prev_player_d_r:
                         if len(online_players) >= 2 and len(enemies_online) >= 2:
                             if fight_loc != loc:
@@ -2421,6 +2427,7 @@ while GRunning:
                                 player_turn_id = None
                                 for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
                                     prev_player_d_r["player_data"][playeron["id"]]["enemies"].remove(name_id)
+                            #if player ap are zero give the turn to the next enemy if index error give the turn to the first enemy
                             if player.ap == 0:
                                 prev_player_d_r["player_data"][name_id]["has_turn"] = False
                                 try:
@@ -2446,10 +2453,16 @@ while GRunning:
                                         player.has_turn = True
                                 for enemy1 in prev_player_d_r["player_data"][fight_loc]:
                                     enemy1[player_turn_id]["has_turn"] = True
+
+
+                            #check if the player has turn from turn system
                             if "turn_system" in prev_player_d_r and fight_loc in prev_player_d_r["turn_system"]:
                                 if prev_player_d_r["turn_system"][fight_loc]["plr_turn_id"] == name_id:
                                     print("TURN")
                                     player.has_turn = True
+
+
+                            #if the player has turn hes able to shoot
                             if player.has_turn == True:
                                 prev_player_d_r["player_data"][fight_loc][player_turn_id]["has_turn"] = False
                                 prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = True
@@ -2461,15 +2474,21 @@ while GRunning:
                                         if not player_s.id in enemies_online:
                                             enemies_online.append(player_s.id)
                                         player_data["shooted_player"] = player_s.id
+                            #if ap are 0 then player turn is over
                             if player.ap == 0:
                                 prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = False
+                            
+                            #checks if someone shot you and if he did remove the damage that he did in player.hp
                             for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
+                                #player that shooted you wasnt an enemy
                                 if playeron["shooted_player"] == name_id and not playeron["player_id"] in enemies_online:
                                     enemies_online.append(playeron["player_id"])
                                     prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["enemies"] = enemies_online
                                     prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"] -= player.hp
+                                #player that shooted you was an enemy
                                 if playeron["shooted_player"] == name_id and playeron["player_id"] in enemies_online:
                                     prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"] -= player.hp
+                            #update the turn_system
                             turn_system[fight_loc]["plr_turn_id"] = player_turn_id
                             turn_system[fight_loc]["cur_on_turn"] = current_online_turn
                             
@@ -2487,7 +2506,8 @@ while GRunning:
                             loaded_players = False
                             print(f'new players : {len(prev_player_d_r["player_data"][loc])}')
                             #print("loc: ",(prev_player_d_r["player_data"][loc]))
-                            
+                    
+                    #if new or less players recreate their objects
                     if loaded_players == False and "player_data" in prev_player_d_r and "conn_id" in prev_player_d_r:
                         if loc in prev_player_d_r["player_data"]:
                             online_players.clear()
@@ -2499,6 +2519,7 @@ while GRunning:
                                     #print("test",str(i))
                                 plr = online_player(i["x"], i["y"], i["loc"], 'objects/animations/playerIdleSprites/3/playerIdle (1).png', i["player_id"])#, i["current_sprite"])
                                 online_players.append(plr)
+                    #update all players position
                     if "player_data" in prev_player_d_r and "conn_id" in prev_player_d_r:
                         if loc in prev_player_d_r["player_data"]:
                             #print('found it')
@@ -2518,12 +2539,13 @@ while GRunning:
                                     image = pygame.image.load('objects/animations/playerIdleSprites/3/playerIdle (1).png')
                                 #plrs.rect = image.get_rect()
                                 #screen.blit(image,plrs.rect)#plrs.current_sprite, plrs.rect)
-                    
+                    #dont update the online_player object if self because there gonna be two self players
                     if bool(online_players):
                         for plrs in online_players:
                             if plrs.id != name_id:
                                 plrs.update()
                     loaded_players = True
+                    #update players health based on the server data
                     if "player_data" in prev_player_d_r and "conn_id" in prev_player_d_r:
                         for i, playerself in prev_player_d_r["player_data"][loc].items():
                             if playerself["player_id"] == name_id:
@@ -2552,7 +2574,6 @@ while GRunning:
                     #print("send:    ", str(data_to_send))
 
                     pickle_data = pickle.dumps(data_to_send)
-                    # Send the JSON string to the server
 
                     client_socket.send(pickle_data)
 
