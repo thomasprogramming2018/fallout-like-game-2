@@ -2293,7 +2293,10 @@ while GRunning:
                         "shooted_player" : None,
                         "DMG" : online_damage,
                         "has_turn" : player.has_turn,
-                        "enemies" : enemies_online
+                        "enemies" : enemies_online,
+                        "fight_loc" : None,
+                        "ap" : player.ap,
+                        "ap_max" : player.ap_max
                     }
                     turn_system = {
                         "Aroyo_online" : {
@@ -2345,7 +2348,9 @@ while GRunning:
                 player_data["shooted_player"] = None
                 player_data["DMG"] = online_damage
                 player_data["has_turn"] = player.has_turn
-                
+                player_data["ap"] = player.ap
+                player_data["ap_max"] = player.ap_max
+
                 #data = json.loads(data)
                 #data = player_data#[player_data["player_id"]] = player_data
                 #data = json.dumps(data)
@@ -2377,11 +2382,13 @@ while GRunning:
                 except (pickle.UnpicklingError, TypeError, UnicodeDecodeError) as e:
                     pass
                 
-                    
+                
                     # Handle the unpickling error
                     #print(f"Error while unpickling data: {e}")
                 if bool(data):
-                    
+                    if "player_data" in prev_player_d_r and name_id in prev_player_d_r["player_data"][loc]:
+                        player.ap = prev_player_d_r["player_data"][loc][name_id]["ap"] 
+                        player.has_turn = prev_player_d_r["player_data"][loc][name_id]["has_turn"]
                     if player.hp <= 0:
                         player.rect.x = 600
                         player.rect.y = 600
@@ -2399,101 +2406,123 @@ while GRunning:
                         prev_loc = loc
                     
                     #what happeneds when you get shot and not in online_combat
-                    if online_combat == False and "player_data" in prev_player_d_r and fight_loc in prev_player_d_r["player_data"]:
-                        for i, playeron in prev_player_d_r["player_data"][loc].items():
-                            if playeron["shooted_player"] == name_id:
-                                enemies_online.append(playeron["player_id"])
-                                enemies_online.append(name_id)
-                                online_combat = True
+                    #if "player_data" in prev_player_d_r and fight_loc in prev_player_d_r["player_data"]:
+                    #    for i, playeron in prev_player_d_r["player_data"][loc].items():
+                    #        if playeron["shooted_player"] == name_id:
+                    #            print('got shot')
+                    #            enemies_online = playeron["enemies"]
+                    #            #enemies_online.append(playeron["player_id"])
+                    #            #enemies_online.append(name_id)
+                    #            online_combat = True
                     #what happeneds when you shoot someone and not in online_combat
+                    #todo change this when i add cmb and turn button player.ap != 0
                     if len(online_players) >= 2 and "player_data" in prev_player_d_r:
                         if online_combat == False and player.ap >= 50:
                             for player_s in online_players:
                                 if player_s.got_shot == True:
                                     player_s.got_shot = False
                                     player.play_shoot(player_s)
-                                    enemies_online.append(player_s.id)
-                                    enemies_online.append(name_id)
+                                    #enemies_online.append(player_s.id)
+                                    #enemies_online.append(name_id)
                                     player_data["shooted_player"] = player_s.id
                                     fight_loc = loc
+                                    player_data["fight_loc"] = fight_loc
                                     online_combat = True
+                                    #if player.ap != 0:
+                                    #    player.has_turn = True
+                    if online_combat:
+                        if player.ap >= 50 and player.has_turn:
+                            for player_s in online_players:
+                                if player_s.got_shot == True:
+                                    player_s.got_shot = False
+                                    player.play_shoot(player_s)
+                                    #enemies_online.append(player_s.id)
+                                    #enemies_online.append(name_id)
+                                    player_data["shooted_player"] = player_s.id
+                                    fight_loc = loc
+                                    player_data["fight_loc"] = fight_loc
+                                    
+                                    #if player.ap != 0:
+                                    #    player.has_turn = True
                     #if player in combat
-                    if online_combat and "player_data" in prev_player_d_r:
-                        if len(online_players) >= 2 and len(enemies_online) >= 2:
-                            if fight_loc != loc:
-                                online_combat = False
-                                enemies_online = []
-                                current_online_turn = 0
-                                player_turn_id = None
-                                for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
-                                    prev_player_d_r["player_data"][playeron["id"]]["enemies"].remove(name_id)
-                            #if player ap are zero give the turn to the next enemy if index error give the turn to the first enemy
-                            if player.ap == 0:
-                                prev_player_d_r["player_data"][name_id]["has_turn"] = False
-                                try:
-                                    if enemies_online[current_online_turn] != name_id:
-                                        for i in online_players:
-                                            if i.id == enemies_online[current_online_turn]:
-                                                i.has_turn = True
-                                        player_turn_id = enemies_online[current_online_turn]
-                                        current_online_turn += 1
-                                        player.has_turn = False
-                                    else:
-                                        player.ap = player.ap_max
-                                        player.has_turn = True
-                                except IndexError:
-                                    current_online_turn = 0
-                                    if enemies_online[current_online_turn] != name_id:
-                                        for i in online_players:
-                                            if i.id == enemies_online[current_online_turn]:
-                                                i.has_turn = True
-                                        player_turn_id = enemies_online[current_online_turn]
-                                    else:
-                                        player.ap = player.ap_max
-                                        player.has_turn = True
-                                for enemy1 in prev_player_d_r["player_data"][fight_loc]:
-                                    enemy1[player_turn_id]["has_turn"] = True
-
-
-                            #check if the player has turn from turn system
-                            if "turn_system" in prev_player_d_r and fight_loc in prev_player_d_r["turn_system"]:
-                                if prev_player_d_r["turn_system"][fight_loc]["plr_turn_id"] == name_id:
-                                    print("TURN")
-                                    player.has_turn = True
-
-
-                            #if the player has turn hes able to shoot
-                            if player.has_turn == True:
-                                prev_player_d_r["player_data"][fight_loc][player_turn_id]["has_turn"] = False
-                                prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = True
-                            #if player.ap >= 50: #todo add cmb and turn button
-                                for player_s in online_players:
-                                    if player_s.got_shot == True:
-                                        player_s.got_shot = False
-                                        player.play_shoot(player_s)
-                                        if not player_s.id in enemies_online:
-                                            enemies_online.append(player_s.id)
-                                        player_data["shooted_player"] = player_s.id
-                            #if ap are 0 then player turn is over
-                            if player.ap == 0:
-                                prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = False
-                            
-                            #checks if someone shot you and if he did remove the damage that he did in player.hp
-                            for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
-                                #player that shooted you wasnt an enemy
-                                if playeron["shooted_player"] == name_id and not playeron["player_id"] in enemies_online:
-                                    enemies_online.append(playeron["player_id"])
-                                    prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["enemies"] = enemies_online
-                                    prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"] -= player.hp
-                                #player that shooted you was an enemy
-                                if playeron["shooted_player"] == name_id and playeron["player_id"] in enemies_online:
-                                    prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"] -= player.hp
-                            #update the turn_system
-                            turn_system[fight_loc]["plr_turn_id"] = player_turn_id
-                            turn_system[fight_loc]["cur_on_turn"] = current_online_turn
-                            
-                        else:
-                            online_combat = False
+                    #if online_combat and "player_data" in prev_player_d_r:
+                    #    if len(online_players) >= 2 and len(enemies_online) >= 2:
+                    #        if fight_loc != loc:
+                    #            online_combat = False
+                    #            enemies_online = []
+                    #            current_online_turn = 0
+                    #            player_turn_id = None
+                    #            for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
+                    #                prev_player_d_r["player_data"][playeron["id"]]["enemies"].remove(name_id)
+                    #        #if player ap are zero give the turn to the next enemy if index error give the turn to the first enemy
+                    #        if player.ap == 0:
+                    #            if player.has_turn == True:
+                    #                prev_player_d_r["player_data"][name_id]["has_turn"] = False
+                    #                player.has_turn = False
+                    #            try:
+                    #                if enemies_online[current_online_turn] != name_id:
+                    #                    for i in online_players:
+                    #                        if i.id == enemies_online[current_online_turn]:
+                    #                            i.has_turn = True
+                    #                    player_turn_id = enemies_online[current_online_turn]
+                    #                    current_online_turn += 1
+                    #                    player.has_turn = False
+                    #                else:
+                    #                    player.ap = player.ap_max
+                    #                    player.has_turn = True
+                    #            except IndexError:
+                    #                current_online_turn = 0
+                    #                if enemies_online[current_online_turn] != name_id:
+                    #                    for i in online_players:
+                    #                        if i.id == enemies_online[current_online_turn]:
+                    #                            i.has_turn = True
+                    #                    player_turn_id = enemies_online[current_online_turn]
+                    #                else:
+                    #                    player.ap = player.ap_max
+                    #                    player.has_turn = True
+                    #            for enemy1 in prev_player_d_r["player_data"][fight_loc]:
+                    #                enemy1[player_turn_id]["has_turn"] = True
+#
+#
+                    #        #check if the player has turn from turn system
+                    #        if "turn_system" in prev_player_d_r and fight_loc in prev_player_d_r["turn_system"]:
+                    #            if prev_player_d_r["turn_system"][fight_loc]["plr_turn_id"] == name_id:
+                    #                print("TURN")
+                    #                player.has_turn = True
+#
+#
+                    #        #if the player has turn hes able to shoot
+                    #        if player.has_turn == True and player.ap >= 50:
+                    #            prev_player_d_r["player_data"][fight_loc][player_turn_id]["has_turn"] = False
+                    #            prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = True
+                    #        #if player.ap >= 50: #todo add cmb and turn button
+                    #            for player_s in online_players:
+                    #                if player_s.got_shot == True:
+                    #                    player_s.got_shot = False
+                    #                    player.play_shoot(player_s)
+                    #                    if not player_s.id in enemies_online:
+                    #                        enemies_online.append(player_s.id)
+                    #                    player_data["shooted_player"] = player_s.id
+                    #        #if ap are 0 then player turn is over
+                    #        if player.ap == 0:
+                    #            prev_player_d_r["player_data"][fight_loc][name_id]["has_turn"] = False
+                    #            player.has_turn = False
+                    #        #checks if someone shot you and if he did remove the damage that he did in player.hp
+                    #        for i, playeron in prev_player_d_r["player_data"][fight_loc].items():
+                    #            #player that shooted you wasnt an enemy
+                    #            if playeron["shooted_player"] == name_id and not playeron["player_id"] in enemies_online:
+                    #                enemies_online.append(playeron["player_id"])
+                    #                prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["enemies"] = enemies_online
+                    #                player.hp -= prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"] 
+                    #            #player that shooted you was an enemy
+                    #            if playeron["shooted_player"] == name_id and playeron["player_id"] in enemies_online:
+                    #                player.hp -= prev_player_d_r["player_data"][fight_loc][playeron["player_id"]]["DMG"]
+                    #        #update the turn_system
+                    #        turn_system[fight_loc]["plr_turn_id"] = player_turn_id
+                    #        turn_system[fight_loc]["cur_on_turn"] = current_online_turn
+                    #        
+                    #    else:
+                    #        online_combat = False
                     #if not "player_data" in prev_player_d_r:
                         #print(prev_player_d_r)
                     if "player_data" in prev_player_d_r and "conn_id" in prev_player_d_r:

@@ -37,8 +37,25 @@ if __name__ == '__main__':
         "y" : 300,
         "loc" : 'Aroyo_online'
     }
+
+    current_online_turn = 0
+    
+    player_turn_id = ""
+
+    previous_turn = ""
+
+    online_players = []
+
+    #holds the ids of each enemy in a location
+    enemies_online = {
+        "Aroyo_online" : []
+    }
     player_data2 = {}
     # Function to handle client connections
+    class online_player():
+        def __init__(self, name, has_turn):
+            self.has_turn = has_turn
+            self.id = name
     async def handle_client(client_socket22):
         global connections
         global client_sockets
@@ -46,6 +63,11 @@ if __name__ == '__main__':
         global data_ready_event
         global server_socket
         global player_data
+        global enemies_online
+        global current_online_turn
+        global player_turn_id
+        global online_players
+        global previous_turn
         while True:
             #print(client_sockets)
             for client_socket2 in client_sockets:
@@ -81,19 +103,56 @@ if __name__ == '__main__':
                             # Handle JSON decoding errors
                                 #print('json decoder error',str(messages))
                             # Process the player's data
-
-                            maps = ["Aroyo_online", "Raiders_online"]
+                            
+                            maps = ["Aroyo_online"]
                             for w in maps:
-                                try:
-                                    for (o, plr1), (i, plr2) in zip(player_data[w].items(), player_data_received["player_data"][w].items()):
-                                        if plr1["player_id"] == plr2["player_id"]:
-                                            plr1["enemies"] = plr2["enemies"]
-                                            plr1["has_turn"] = plr2["has_turn"]
-                                            plr1["DMG"] = plr2["DMG"]
-                                            plr1["shooted_player"] = plr2["shooted_player"]
-                                            plr1["hp"] = plr2["hp"]
-                                except Exception:
-                                    pass
+                                if w in player_data:
+                                    if len(enemies_online[w]) == 0:
+                                        current_online_turn = 0
+                                        player_turn_id = ""
+                                    if len(enemies_online[w]) >= 2:
+                                        if player_data_received["player_data_rec"]["ap"] == 0:
+                                            player_data_received["player_data_rec"]["has_turn"] = False
+                                            try:
+                                                if enemies_online[current_online_turn] != player_data_received["player_data_rec"]["player_id"]:
+                                                    
+                                                    for i in online_players:
+                                                        if i == enemies_online[w][current_online_turn]:
+                                                            player_data["player_data"][w][previous_turn]["has_turn"] = False
+                                                            player_data["player_data"][w][i]["has_turn"] = True
+                                                            previous_turn = i
+                                                            current_online_turn += 1
+                                                else:
+                                                    player_data["player_data"][w][previous_turn]["has_turn"] = False
+                                                    player_data_received["player_data_rec"]["has_turn"] = True
+                                                    player_data_received["player_data_rec"]["ap"] = player_data_received["player_data_rec"]["ap_max"]
+                                                    current_online_turn += 1
+                                            except IndexError:
+                                                current_online_turn = 0
+                                                for i in online_players:
+                                                    if i == enemies_online[w][current_online_turn]:
+                                                        player_data["player_data"][w][previous_turn]["has_turn"] = False
+                                                        player_data["player_data"][w][i]["has_turn"] = True
+                                                        previous_turn = i
+                                                        current_online_turn += 1
+                                    for i, playeron in player_data[w].items():
+                                        if playeron["shooted_player"] == player_data_received["player_data_rec"]["player_id"]:
+                                            player_data_received["player_data_rec"]["hp"] -= playeron["DMG"]
+                                            if player_data_received["player_data_rec"]["player_id"] not in enemies_online[w]:
+                                                enemies_online[w].append(player_data_received["player_data_rec"]["player_id"])
+                                                if playeron["player_id"] not in enemies_online[w]:
+                                                    enemies_online[w].append(playeron["player_id"])
+                                    
+                                #try:
+                                #    for (o, plr1), (i, plr2) in zip(player_data[w].items(), player_data_received["player_data"][w].items()):
+                                #        if plr1["player_id"] == plr2["player_id"]:
+                                #            plr1["enemies"] = plr2["enemies"]
+                                #            plr1["has_turn"] = plr2["has_turn"]
+                                #            plr1["DMG"] = plr2["DMG"]
+                                #            plr1["shooted_player"] = plr2["shooted_player"]
+                                #            plr1["hp"] = plr2["hp"]
+                                #except Exception:
+                                #    pass
 
                             player_loc = player_data_received["player_data_rec"]["loc"]
                             player_id = player_data_received["player_data_rec"]["player_id"]
@@ -107,6 +166,10 @@ if __name__ == '__main__':
                             
                             player_data[player_loc][player_id] = player_data_received["player_data_rec"]  # Store player data on the server
                             
+                            for i in player_data:
+                                for e in player_data[i]:
+                                    
+                                    online_players.append(e)
                             #print('player_data: ',str(player_data))
                             connections = len(client_sockets)
                             players_and_client_data = {"player_data" : player_data, "player_data_rec" : player_data_received["player_data_rec"], "conn_id" : connections, "turn_system" : player_data_received["turn_system"]}
